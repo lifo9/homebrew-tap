@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# The job only reads the repository.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: style + audit + install
+    # The casks hold macOS apps for Apple silicon, so they are installed on such a runner.
+    runs-on: macos-26
+    steps:
+      # Checks the repository out, links it into Homebrew as the tap and trusts it. There is no
+      # separate checkout step: this action does it, into the place Homebrew reads taps from.
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@ceec4e8419bb3c97ce96e9dda7738499ed5f869d # 2026.11.14.1
+
+      # The update script only runs when the app has a new release; a script that does not parse
+      # or has lost its executable bit should fail here, not then.
+      - name: shell scripts parse and are executable
+        run: |
+          for script in scripts/*.sh; do
+            bash -n "$script" && test -x "$script" || { echo "$script does not parse or is not executable"; exit 1; }
+          done
+
+      - name: check the casks
+        env:
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: scripts/check-casks.sh "$TAP_NAME"

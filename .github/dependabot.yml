@@ -1,0 +1,10 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    # A release has to be out for a few days before it is proposed, so that a compromised one
+    # has time to be noticed and withdrawn.
+    cooldown:
+      default-days: 3

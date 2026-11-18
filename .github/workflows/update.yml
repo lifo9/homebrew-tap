@@ -1,0 +1,55 @@
+name: update
+
+on:
+  schedule:
+    # Once a day, off the full hour, when GitHub starts scheduled runs late.
+    - cron: "23 5 * * *"
+  # To follow a release at once: gh workflow run update.yml
+  workflow_dispatch:
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: follow the app's newest release
+    # A run started by hand from another branch would publish that branch's files.
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    permissions:
+      # Pushes the cask's new version to main.
+      contents: write
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@ceec4e8419bb3c97ce96e9dda7738499ed5f869d # 2026.11.14.1
+        with:
+          # Kept by git until the end of the job, for the push below.
+          token: ${{ github.token }}
+
+      - name: point the cask at the newest release
+        id: update-cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          new_version="$(scripts/update-cask.sh "$TAP_NAME")"
+          echo "new-version=$new_version" >> "$GITHUB_OUTPUT"
+
+      # A push made with the workflow's own token starts no other workflow, so the checks of
+      # `ci` run here, before the push instead of after it.
+      - name: check the casks
+        if: steps.update-cask.outputs.new-version != ''
+        env:
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: scripts/check-casks.sh "$TAP_NAME"
+
+      - name: publish the new version
+        if: steps.update-cask.outputs.new-version != ''
+        run: git push origin HEAD:main
