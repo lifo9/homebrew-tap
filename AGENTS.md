@@ -11,6 +11,11 @@ works where the checkout is linked into Homebrew as the tap, so it runs in CI
 (`.github/workflows/ci.yml`), not on a Mac whose taps are read-only. Locally, check that the
 scripts parse (`bash -n scripts/*.sh`) and let CI do the rest on a pull request.
 
+`brew style` also holds the shell scripts of a tap to Homebrew's shell style, with shellcheck
+and shfmt: two spaces, `then` and `do` on their own line, braces around every variable.
+`nix shell nixpkgs#shellcheck -c shellcheck --enable=require-variable-braces scripts/*.sh`
+catches the braces before CI does.
+
 ## Rules
 
 - The cask's `version` and `sha256` are written by `.github/workflows/update.yml`, which commits
